@@ -1,0 +1,71 @@
+#! /usr/bin/env python
+from netmiko import Netmiko
+import os.path
+from datetime import datetime
+today = datetime.today().strftime('%Y-%m-%d-%H-%M-%S')
+
+#Define Device List
+ho_cisco_r = {
+        "device_type": "cisco_ios",
+        "ip": "X.X.X.X",
+        "username": 'your_username',
+        "password": 'your_password',
+        #"secret" : enable_pass,
+        #"port":"22",
+}
+ho_cisco_sw1 = {
+        "device_type": "cisco_ios",
+        "ip": "X.X.X.X",
+        "username": 'your_username',
+        "password": 'your_password',
+        #"secret" : enable_pass,
+        #"port":"22",
+}
+ho_cisco_sw2 = {
+        "device_type": "cisco_ios",
+        "ip": "X.X.X.X",
+        "username": 'your_username',
+        "password": 'your_password',
+        #"secret" : enable_pass,
+        #"port":"22",
+}
+ndc_cisco_r = {
+        "device_type": "cisco_ios",
+        "ip": "X.X.X.X",
+        "username": 'your_username',
+        "password": 'your_password',
+        #"secret" : enable_pass,
+        #"port":"22",
+}
+ndc_cisco_sw1 = {
+        "device_type": "cisco_ios",
+        "ip": "X.X.X.X",
+        "username": 'your_username',
+        "password": 'your_password',
+        #"secret" : enable_pass,
+        #"port":"22",
+}
+ndc_cisco_sw2 = {
+        "device_type": "cisco_ios",
+        "ip": "X.X.X.X",
+        "username": 'your_username',
+        "password": 'your_password',
+        #"secret" : enable_pass,
+        #"port":"22",
+}
+#define group of devices
+dhv_devices=[ho_cisco_r , ho_cisco_sw1 , ho_cisco_sw2 , ndc_cisco_r , ndc_cisco_sw1 , ndc_cisco_sw2]
+show_cm = "show running-config"
+bk_path = 'C:/dhv_bk/'
+for dev in dhv_devices:
+        name = dev["ip"]
+        connection = Netmiko(**dev)
+        connection.enable()
+        out = connection.send_command(show_cm)
+        DHV_NAME = os.path.join(bk_path, today + "_%s.txt")
+        file = open(DHV_NAME %name,"w")
+        #file = open(today + "_%s.txt" %name ,"w")
+        file.write(out)
+        file.close()
+        connection.disconnect()
+        print("Daily BK Configuration for %s has been done" %name)
