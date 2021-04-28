@@ -671,4 +671,4 @@ modules:
    retries: 3
    timeout: 10s
    auth:
-    community: danghoangviet
+    community: Change_To_Your_Community
