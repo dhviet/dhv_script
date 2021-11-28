@@ -1,0 +1,52 @@
+https://docs.microsoft.com/en-us/windows-server/storage/storage-spaces/deploy-storage-spaces-direct
+ 
+ Step 1: Install WindowsFeature on all node
+ 
+ # Fill in these variables with your values
+$ServerList = "DHV-SRV2019-01", "DHV-SRV2019-01", "DHV-SRV2019-03"
+$FeatureList = "Hyper-V", "Failover-Clustering", "Data-Center-Bridging", "RSAT-Clustering-PowerShell", "Hyper-V-PowerShell", "FS-FileServer"
+
+# This part runs the Install-WindowsFeature cmdlet on all servers in $ServerList, passing the list of features into the scriptblock with the "Using" scope modifier so you don't have to hard-code them here.
+Invoke-Command ($ServerList) {
+    Install-WindowsFeature -Name $Using:Featurelist
+}
+ 
+ Invoke-Command - ComputerName sea-srv1,sear-srv2,sea-srv3 -Scripblock {Install-WindowsFeature -Name File-Services}
+ 
+ Invoke-Command - ComputerName sea-srv1,sear-srv2,sea-srv3 -Scripblock {Restart-Computer -Force}
+ Install-WindowsFeature RSAT-Clustering-MGMT
+ 
+ 
+ Step 2: Test
+ 
+ Test-Cluster -Node "DHV-SRV2019-01", "DHV-SRV2019-01", "DHV-SRV2019-03" -Include "Storage Spaces Direct", "Inventory", "Network", "System Configuration"
+ 
+ Test-Cluster –Node <MachineName1, MachineName2, MachineName3, MachineName4> –Include "Storage Spaces Direct", "Inventory", "Network", "System Configuration"
+ 
+ Step 3: Create Cluster
+ 
+ New-Cluster –Name <ClusterName> –Node <MachineName1,MachineName2,MachineName3,MachineName4> –NoStorage –StaticAddress 192.168.208.50
+ 
+ Step 4: Create S2D 
+ 
+ Invoke-Command -ComputerName DHV-SRV2019-01 -ScripBlock {Enable-S2D -CacheState Disable -AutoConfig:0 -SkipEl..}
+ 
+ refer: Enable-ClusterStorageSpacesDirect –CimSession <ClusterName>
+ 
+ Step 5: Create Storage Pool
+ 
+ Invoke-Command -ComputerName DHV-SRV2019-01 -ScripBlock {New-StoragePool -StorageSubSystemName DHVS2DCluster.dhv.local -FriendlyName: DHVS2DStoragePool -ProvisioningTypeDefault Fixed -ResiliencySettingNameDefault Mirror -PhysicalDisk (Get-StorageSubSystem -Name DHVS2DCluster.dhv.local | Get-PhysicalDisk)}
+ 
+ Step 6: Create virtual disks
+ 
+ Invoke-Command -ComputerName DHV-SRV2019-01 -ScripBlock {New-Volume -StoragePoolFriendlyName S2DStoragePool -FriendlyName "CSV" -FileSystem CSVFS_ReFS -Size 10GB}
+ 
+ Step 7 : Create File Server
+ 
+ Invoke-Command -ComputerName DHV-SRV2019-01 -ScripBlock {New-StorageFileServer -StorageSubSystemName DHVS2DCluster.dhv.local -FriendlyName S2D-SOFS -HostName S2D-SOFS -Protocol SMB}
+ 
+ Step 8: Create File shares - Administrator: Windows PowerShell ISE
+
+ Invoke-Command -ComputerName SRV3 -ScripBlock {md "C:\ClusterStorage\CSV\VM01"}
+ Invoke-Command -ComputerName SRV1 -ScripBlock {New-SmbShare -Name VM01 -Path "C:\ClusterStorage\CSV\VM01" -FullAccess "dhv\Administrator"}
+ Invoke-Command -ComputerName SRV1 -ScripBlock {Set-SmbPathAcl -ShareName VM01}
