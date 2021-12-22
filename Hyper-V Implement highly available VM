@@ -1,0 +1,41 @@
+# For any question you can contact me via danghoangviet@outlook.com or Mobile | Telegram: +84 933 868 353
+
+# Install Failover Clustering on Hyper-V nodes
+
+Invoke-Command -ComputerName "DHV-HYPERV-01", "DHV-HYPERV-02" -Scriptblock {Install-WindowsFeature -Name "Failover-Clustering", "RSAT-Clustering-PowerShell" -IncludeManagementTools}
+Invoke-Command -ComputerName "DHV-HYPERV-01", "DHV-HYPERV-02" -Scriptblock {Restart-Computer -Force}
+ 
+
+# Start the Microsoft iSCSI Initiator services on 2 Hyper-V nodes
+
+Invoke-Command -ComputerName "DHV-HYPERV-01", "DHV-HYPERV-02"  -Scriptblock {Start-Service msiscsi}
+Invoke-Command -ComputerName "DHV-HYPERV-01", "DHV-HYPERV-02"  -Scriptblock {Set-Service msiscsi -startuptype "automatic"}
+
+#Connect to iSCSI target server for Hyper-V nodes
+
+Invoke-Command -ComputerName "DHV-HYPERV-01", "DHV-HYPERV-02"  -Scriptblock {New-iSCSITargetPortal -TargetPortalAddress DHVHCMSRV001.dhv.local}
+Invoke-Command -ComputerName "DHV-HYPERV-01" -Scriptblock {Connect-IscsiTarget -NodeAddress iqn.1991-05.com.microsoft:dhvhcmsrv001-forvm-target}
+Invoke-Command -ComputerName "DHV-HYPERV-01" -Scriptblock {Get-iSCSITarget | fl}
+Invoke-Command -ComputerName "DHV-HYPERV-02" -Scriptblock {Connect-iSCSITarget -NodeAddress iqn.1991-05.com.microsoft:dhvhcmsrv001-forvm-target}
+Invoke-Command -ComputerName "DHV-HYPERV-02" -Scriptblock {Get-iSCSITarget | fl}
+Invoke-Command -ComputerName "DHV-HYPERV-01" -Scriptblock {Get-Disk}
+
+#Initial Disk on Hyper-V Host
+Invoke-Command -ComputerName "DHV-HYPERV-01" -Scriptblock {Set-Disk -Number 1 -IsOffline $False}
+Invoke-Command -ComputerName "DHV-HYPERV-01" -Scriptblock {Set-Disk -Number 2 -IsOffline $False}
+Invoke-Command -ComputerName "DHV-HYPERV-01" -Scriptblock {Initialize-Disk -Number 1 -PartitionStyle GPT}
+Invoke-Command -ComputerName "DHV-HYPERV-01" -Scriptblock {Initialize-Disk -Number 2 -PartitionStyle GPT}
+Invoke-Command -ComputerName "DHV-HYPERV-01" -Scriptblock {New-Partition -DiskNumber 1 -UseMaximumSize -AssignDriveLetter}
+Invoke-Command -ComputerName "DHV-HYPERV-01" -Scriptblock {New-Partition -DiskNumber 2 -UseMaximumSize -AssignDriveLetter}
+Invoke-Command -ComputerName "DHV-HYPERV-01" -Scriptblock {Format-Volume -DriveLetter E -FileSystem ReFS -Force}
+Invoke-Command -ComputerName "DHV-HYPERV-01" -Scriptblock {Format-Volume -DriveLetter F -FileSystem ReFS -Force}
+
+
+#Step 2: Validate the cluster (Test-Cluster)
+ 
+Test-Cluster -Node "DHV-HYPERV-01", "DHV-HYPERV-02" -Include "Storage Spaces Direct", "Inventory", "Network", "System Configuration", "Hyper-V"
+Test-Cluster -Node "DHV-HYPERV-01", "DHV-HYPERV-02"
+   
+#: Create Cluster
+  
+ New-Cluster –Name VMs-HA –Node "DHV-HYPERV-01", "DHV-HYPERV-02" –StaticAddress 192.168.208.30
